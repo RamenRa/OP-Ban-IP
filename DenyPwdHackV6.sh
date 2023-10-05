@@ -11,7 +11,7 @@ bantime=24
 
 ## 日志路径
 LOG_DEST=/tmp/BanIP.log   # 操作日志 使用grep "\] BAN_IP.*DenyPwdHack" /tmp/BanIP.log 筛选封禁ip相关行
-LOG_HISTORY=/tmp/BanHistory.log  # 到期释放的IP
+LOG_HISTORY=/tmp/BanHistory.log  # 操作日志 和 释放的IP
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
 ## 白名单IP可以用"|"号隔开,支持grep的正则表达式
