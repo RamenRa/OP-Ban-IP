@@ -1,7 +1,7 @@
 #!/bin/bash
 ## 本脚本基于iptables/ip6tables 和 ipset实现 该脚本的创建的防火墙规则 在重启后消失
 ## 失败次数
-Failed_times=5
+Failed_times=4
 
 # 查找日志时间范围，单位：秒
 findtime=3600
