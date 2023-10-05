@@ -1,18 +1,14 @@
 #!/bin/bash
 ## 本脚本基于iptables/ip6tables 和 ipset实现
-## 失败次数
-Failed_times=4
 
-# 查找日志时间范围，单位：秒
-findtime=3600
-
-## 黑名单过期时间,单位：小时
-## 至少要大于 findtime/3600 
-bantime=24
+Failed_times=4  ## 失败次数
+findtime=3600  # 查找日志时间范围，单位：秒
+bantime=24  # 黑名单过期时间,单位：小时 至少要大于 findtime/3600 
 
 ## 日志路径
-LOG_DEST=/tmp/BanIP.log   # 操作日志 使用grep "\] BAN_IP.*DenyPwdHack" /tmp/BanIP.log 筛选封禁ip相关行
-LOG_HISTORY=/tmp/BanHistory.log  # 到期释放的IP
+LOG_DEST=/tmp/BanIP.log  # 不要随意删除 解除黑名单依赖BanIP.log
+LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
+
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
 ## 白名单IP可以用"|"号隔开,支持grep的正则表达式
@@ -78,7 +74,7 @@ function get_unix_time {
   echo -e "$unix_timestamp"
 }
 
-## 读取规定时间范围内的日志
+## 返回 时间范围内的日志
 function process_logread_output {
   local logread_output="$1"
   local threshold="$2"  ## 新增的参数用于表示时间差的阈值
@@ -121,6 +117,7 @@ LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for|luci:\s+failed\s+login|auth
 ## 日志时间
 LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
+# 遍历违规IPV4和IPV6 并添加进黑名单集合
 function processIPList {
   local ChainNameRule="$1"
   local IP_sum="$2"
@@ -147,7 +144,7 @@ function processIPList {
   fi
 }
 
-# 从logread读取登陆日志
+# 从logread获取违规信息
 DenyIPLIst=`echo "$log_output" \
   | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
   if($i~/^(([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/) \
@@ -156,7 +153,7 @@ DenyIPLIst=`echo "$log_output" \
   | sort | uniq -c \
   | awk '{if($1>'"$Failed_times"') print $2}'`
   
-# 从logread读取登陆日志 IPV6
+# 从logread获取违规信息 IPV6
 DenyIPLIstIPV6=`echo "$log_output" \
   | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
   if($i~/^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/) \
@@ -175,6 +172,7 @@ ChainNameV6=DenyPwdHack6
 processIPList "$ChainName" "$IPList_sum" "$DenyIPLIst"
 processIPList "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6"
 
+# 检查日志是否存在以及限制大小
 function check_log {
   local log_name="$1"
   # 检查日志文件是否存在
