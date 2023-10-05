@@ -57,8 +57,9 @@ cat /tmp/BanHistory.log  # 历史禁止IP
 4. 日志保存位置
  
    LOG_DEST=/tmp/BanIP.log
+   
    LOG_HISTORY=/tmp/BanHistory.log
 
-5. 白名单IP可以用"|"号隔开,支持grep的正则表达式
+6. 白名单IP可以用"|"号隔开,支持grep的正则表达式
  
    exclude_ip="192.168.4|127.0.0.1"
