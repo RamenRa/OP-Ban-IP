@@ -6,12 +6,13 @@ Failed_times=4
 # 查找日志时间范围，单位：秒
 findtime=3600
 
-## 黑名单过期时间,单位：小时 
+## 黑名单过期时间,单位：小时
+## ！ 至少要大于查找时间！！
 bantime=24
 
 ## 日志路径
-LOG_DEST=/tmp/BanIP.log   # 使用grep "\] BAN_IP.*DenyPwdHack" /tmp/BanIP.log 筛选封禁ip相关行
-LOG_HISTORY=/tmp/BanHistory.log  # 操作日志 和 释放的IP
+LOG_DEST=/tmp/BanIP.log   # 操作日志 使用grep "\] BAN_IP.*DenyPwdHack" /tmp/BanIP.log 筛选封禁ip相关行
+LOG_HISTORY=/tmp/BanHistory.log  # 到期释放的IP
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
 ## 白名单IP可以用"|"号隔开,支持grep的正则表达式
@@ -88,14 +89,11 @@ function process_logread_output {
     # 将时间转换为时间戳
     # timestamp=$(date -d "$log_time" +%s 2>/dev/null)
     timestamp=$(get_unix_time $log_time)
-
     if [ -n "$timestamp" ]; then
       # 获取当前时间戳
       current_timestamp=$(date +%s)
-    
       # 计算时间戳差值
       time_diff=$((current_timestamp - timestamp))
-    
       # 如果差值小于threshold秒，则输出时间戳和原始日志行
       if [ "$time_diff" -lt "$threshold" ]; then
         # 将结果写入输出变量
@@ -115,38 +113,39 @@ function process_logread_output {
 logread_output=$(logread) 
 log_output=$(process_logread_output "$logread_output" "$findtime")
 
-# 打印函数的输出
-# echo "$log_output"
-
-## 黑名单所在iptables链表
-ChainName=DenyPwdHack
-ChainNameV6=DenyPwdHack6
-
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
 ## 注: SSH 攻击可以大量出现四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
 ##     Luci 攻击可以出现"luci: failed login on / for root from xx.xx.xx.xx"
 LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for|luci:\s+failed\s+login|auth\.info.*sshd.*Connection closed by.*port.*preauth"
 
-
 ## 日志时间
 LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
-
-# 检查集合是否已经存在
-ipset_exists=$(ipset list | grep -q "$ChainName" && echo "yes" || echo "no")
-if [ "$ipset_exists" = "no" ]; then
+function processIPList {
+  local ChainNameRule="$1"
+  local IP_sum="$2"
+  local DenyIPLIst_local="$3"
+  # 检查集合是否已经存在
+  ipset_exists=$(ipset list | grep -q "$ChainNameRule" && echo "yes" || echo "no")
+  if [ "$ipset_exists" = "no" ]; then
   # 如果集合不存在，创建它.
-  echo "[$LOG_DT]  ipset create $ChainName hash:ip" >> $LOG_HISTORY
-  ipset create "$ChainName" hash:ip
-fi
-
-# 检查IPV6集合是否已经存在 
-ipset_exists=$(ipset list | grep -q "$ChainNameV6" && echo "yes" || echo "no")
-if [ "$ipset_exists" = "no" ]; then
-  # 如果集合不存在，创建它.
-  echo "[$LOG_DT]  ipset create $ChainNameV6 hash:ip" >> $LOG_HISTORY
-  ipset create "$ChainNameV6" hash:ip family inet6
-fi
+    echo "[$LOG_DT]  ipset create $ChainNameRule hash:ip" >> $LOG_HISTORY
+    ipset create "$ChainNameRule" hash:ip
+  fi
+  if [[ $IP_sum -ne 0 ]]; then
+    current_timestamp=$(date +%s)   # 获取当前时间戳
+    for i in ${DenyIPLIst_local}; do
+      if ! ipset test "$ChainNameRule" "$i" 2>&1 | grep -q "is in set $ChainNameRule"; then
+        ipset add "$ChainNameRule" "$i" 2>/dev/null \
+        && echo "[$LOG_DT] BAN_IP $i rule $ChainNameRule unix $current_timestamp" >> "$LOG_DEST"
+      fi
+      if ! iptables -C INPUT -m set --match-set "$ChainNameRule" src -j DROP 2>/dev/null; then
+        iptables -I INPUT -m set --match-set "$ChainNameRule" src -j DROP \
+        && echo "[$LOG_DT]  iptables -I INPUT -m set --match-set $ChainNameRule src -j DROP" >> "$LOG_HISTORY"
+      fi
+    done
+  fi
+}
 
 # 从logread读取登陆日志
 DenyIPLIst=`echo "$log_output" \
@@ -165,40 +164,17 @@ DenyIPLIstIPV6=`echo "$log_output" \
   | sort | uniq -c \
   | awk '{if($1>'"$Failed_times"') print $2}'`
 
-  
-# 遍历所有违规IP，逐个条件防火墙规则
+# 统计ip 每行一个ip 统计行数即可
 IPList_sum=`echo "${DenyIPLIst}" | wc -l`
-if [[ $IPList_sum -ne 0 ]];then
-  current_timestamp=$(date +%s)   # 获取当前时间戳
-  for i in ${DenyIPLIst}
-    do
-    if ! ipset test "$ChainName" "$i" 2>&1 | grep -q "is in set $ChainName"; then
-      ipset add "$ChainName" "$i" 2>/dev/null \
-      && echo "[$LOG_DT] BAN_IP $i rule $ChainName unix $current_timestamp" >> $LOG_DEST  
-    fi
-    if ! iptables -C INPUT -m set --match-set "$ChainName" src -j DROP 2>/dev/null; then
-      iptables -I INPUT -m set --match-set "$ChainName" src -j DROP \
-      && echo "[$LOG_DT]  iptables -I INPUT -m set --match-set $ChainName src -j DROP" >> $LOG_HISTORY
-    fi
-    done
-fi
-
-# 遍历所有违规IP，逐个条件防火墙规则 IPV6
 IPList_sumIPV6=`echo "${DenyIPLIstIPV6}" | wc -l`
-if [[ $IPList_sumIPV6 -ne 0 ]];then
-  current_timestamp=$(date +%s)   # 获取当前时间戳
-  for i in ${DenyIPLIstIPV6}
-    do
-    if ! ipset test "$ChainNameV6" "$i" 2>&1 | grep -q "is in set $ChainNameV6"; then
-      ipset add "$ChainNameV6" "$i" \
-      && echo "[$LOG_DT] BAN_IP $i rule $ChainNameV6 unix $current_timestamp" >> $LOG_DEST  
-    fi
-    if ! iptables -C INPUT -m set --match-set "$ChainNameV6" src -j DROP 2>/dev/null; then
-      ip6tables -I INPUT -m set --match-set "$ChainNameV6" src -j DROP \
-      && echo "[$LOG_DT]  ip6tables -I INPUT -m set --match-set $ChainNameV6 src -j DROP" >> $LOG_HISTORY
-    fi
-    done
-fi
+
+## IP集合名称
+ChainName=DenyPwdHack
+ChainNameV6=DenyPwdHack6
+
+processIPList "$ChainName" "$IPList_sum" "$DenyIPLIst"
+processIPList "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6"
+
 
 # 检查日志文件是否存在
 if [ ! -f "$LOG_DEST" ]; then
