@@ -44,21 +44,21 @@ cat /tmp/BanHistory.log  # 历史禁止IP
 
 1. 登录失败多少次后封锁IP
 
-   Failed_times=4
+   - Failed_times=4
 
 2. 查找日志时间范围，单位：秒
    
-   findtime=3600
+   - findtime=3600
 
 3. 黑名单过期时间,单位小时
  
-   BlackList_exp=24
+   - BlackList_exp=24
 
 4. 日志保存位置
  
-   LOG_DEST=/tmp/BanIP.log
+   - LOG_DEST=/tmp/BanIP.log
    
-   LOG_HISTORY=/tmp/BanHistory.log
+   - LOG_HISTORY=/tmp/BanHistory.log
 
 6. 白名单IP可以用"|"号隔开,支持grep的正则表达式
  
