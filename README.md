@@ -44,7 +44,7 @@ cat /tmp/BanHistory.log  # 历史禁止IP
 
 1. 登录失败多少次后封锁IP
 
-   Failed_times=5
+   Failed_times=4
 
 2. 查找日志时间范围，单位：秒
    
