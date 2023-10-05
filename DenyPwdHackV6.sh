@@ -7,7 +7,8 @@ Failed_times=4
 findtime=3600
 
 ## 黑名单过期时间,单位：小时
-bantime=24  ## ！ 至少要大于查找时间！！
+## 至少要大于 findtime/3600 
+bantime=24
 
 ## 日志路径
 LOG_DEST=/tmp/BanIP.log   # 操作日志 使用grep "\] BAN_IP.*DenyPwdHack" /tmp/BanIP.log 筛选封禁ip相关行
@@ -174,30 +175,22 @@ ChainNameV6=DenyPwdHack6
 processIPList "$ChainName" "$IPList_sum" "$DenyIPLIst"
 processIPList "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6"
 
+function check_log {
+  local log_name="$1"
+  # 检查日志文件是否存在
+  if [ ! -f "$log_name" ]; then
+    touch "$log_name"
+  fi
+  # 检查日志文件大小
+  log_size=$(du -b "$log_name" | cut -f1)
+  # 如果日志文件超过最大大小，则清空日志文件
+  if [ "$log_size" -gt "$MAX_SIZE" ]; then
+    echo "" > "$log_name"
+  fi
 
-# 检查日志文件是否存在
-if [ ! -f "$LOG_DEST" ]; then
-    touch "$LOG_DEST"
-fi
-
-# 检查日志文件大小
-log_size=$(du -b "$LOG_DEST" | cut -f1)
-# 如果日志文件超过最大大小，则清空日志文件
-if [ "$log_size" -gt "$MAX_SIZE" ]; then
-    echo "" > "$LOG_DEST"
-fi
-
-# 检查日志文件是否存在
-if [ ! -f "$LOG_HISTORY" ]; then
-    touch "$LOG_HISTORY"
-fi
-
-# 检查日志文件大小
-log_size=$(du -b "$LOG_HISTORY" | cut -f1)
-# 如果日志文件超过最大大小，则清空日志文件
-if [ "$log_size" -gt "$MAX_SIZE" ]; then
-    echo "" > "$LOG_HISTORY"
-fi
+}
+check_log "$LOG_DEST"
+check_log "$LOG_HISTORY"
 
 ## 黑名单过期删除
 current_timestamp=$(date +%s) # 获取当前unix时间戳
@@ -216,7 +209,7 @@ grep "\] BAN_IP.*DenyPwdHack" $LOG_DEST | while read -r line; do
   if [ "$time_difference" -gt $(($bantime * 3600)) ]; then
     ipset del $ChainName $ip 2>/dev/null || ipset del $ChainNameV6 $ip 2>/dev/null
     formatted_timestamp=`date "+%Y-%m-%d %H:%M:%S"`  # 获得一个格式化的时间戳
-    modified_line=$(echo "$line" | sed 's/BAN_IP/Released from Prison/'|  awk -v ts="[$formatted_timestamp]" '{sub(/rule.*/, "in " ts)}1')
+    modified_line=$(echo "$line" | sed 's/BAN_IP/Released/'|  awk -v ts="[$formatted_timestamp]" '{sub(/rule.*/, "in " ts)}1')
     echo "$modified_line" >> $LOG_HISTORY
   else
     echo "$line"
