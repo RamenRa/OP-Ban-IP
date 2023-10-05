@@ -62,4 +62,7 @@ cat /tmp/BanHistory.log  # 历史禁止IP
 
 6. 白名单IP可以用"|"号隔开,支持grep的正则表达式
  
-   exclude_ip="192.168.4|127.0.0.1"
+   - exclude_ip="192.168.4|127.0.0.1"
+
+7. 日志大小限制 单位：B
+   - MAX_SIZE=50000
