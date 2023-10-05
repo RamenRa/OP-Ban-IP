@@ -57,8 +57,8 @@ cat /tmp/BanHistory.log  # 历史禁止IP
    - findtime=3600
 
 3. 黑名单过期时间,单位小时
- 
-   - BlackList_exp=24
+   
+   - BlackList_exp=24  #至少要大于 findtime/3600
 
 4. 日志保存位置
  
