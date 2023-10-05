@@ -23,13 +23,15 @@ crontab -e
 
 #### 查看封锁IP集合：
 ```
-ipset list | awk '/Name: DenyPwdHack/,0'
+ipset list | awk '/Name: DenyPwdHack/,0'  # 如果没有显示ipv6的集合 'DenyPwdHack'替换成'DenyPwdHack6'
 ```
 #### 手动删除规则：
 ```
-ipset del DenyPwdHack 192.168.XX.XX    # ipv4规则  将IP替换为需要移除黑名单的ip
-ipset del DenyPwdHack6 fe80::          # ipv6规则 将IP替换为需要移除黑名单的ip
+ipset del DenyPwdHack 192.168.XX.XX  # ipv4规则  将IP替换为需要从黑名单移除的ip
+
+ipset del DenyPwdHack6 fe80::        # ipv6规则 将IP替换为需要从黑名单移除的ip
 ```
+
 
 #### 查看日志
 ```
