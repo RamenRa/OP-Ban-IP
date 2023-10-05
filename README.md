@@ -1,6 +1,6 @@
 # OP-Ban-IP
 [项目源地址](https://github.com/vimers01/deny-ssh-password-attack)
-&ensp; 基于iptables/ip6tables和ipset修改编写了一个小脚本, 脚本通过crontab定时执行.参数在脚本中修改。
+&ensp; 基于iptables/ip6tables和ipset**修改编写**了一个读取日志、封禁ip的小脚本, 脚本通过crontab定时执行。参数在脚本中修改。
 ## 本脚本基于iptables/ip6tables 和 ipset实现
 ### 操作步骤如下:
 ***
