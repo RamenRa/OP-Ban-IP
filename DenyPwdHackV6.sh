@@ -144,16 +144,18 @@ ChainNameV6=DenyPwdHack6
 
 # 遍历违规IPV4和IPV6 并添加进黑名单集合
 function DenyIPList_check {
-  local ChainNameRule="$1"
-  local IP_sum="$2"
-  local DenyIPLIst_local="$3"
-  local IP_TOOL="$4"
+  local ChainNameRule="$3"
+  local IP_sum="$4"
+  local DenyIPLIst_local="$5"
+  local IP_TOOL="$1"
+  local IP_CLASS="$2"
+  
   # 检查集合是否已经存在
   ipset_exists=$(ipset list | grep -q "$ChainNameRule" && echo "yes" || echo "no")
   if [ "$ipset_exists" = "no" ]; then
   # 如果集合不存在，创建它.
-    echo "[$LOG_DT]  ipset create $ChainNameRule hash:ip" >> $LOG_HISTORY
-    ipset create "$ChainNameRule" hash:ip
+    echo "[$LOG_DT]  ipset create $ChainNameRule hash:ip $IP_CLASS" >> $LOG_HISTORY
+    ipset create "$ChainNameRule" hash:ip $IP_CLASS
   fi
   if [[ $IP_sum -ne 0 ]]; then
     current_timestamp=$(date +%s)   # 获取当前时间戳
@@ -162,16 +164,16 @@ function DenyIPList_check {
         ipset add "$ChainNameRule" "$i" 2>/dev/null \
         && echo "[$LOG_DT] BAN_IP $i rule $ChainNameRule unix $current_timestamp" >> "$LOG_DEST"
       fi
-      if ! $IP_TOOL -C INPUT -m set --match-set "$ChainNameRule" src -j DROP 2>/dev/null; then
-        $IP_TOOL -I INPUT -m set --match-set "$ChainNameRule" src -j DROP \
-        && echo "[$LOG_DT]  $IP_TOOL -I INPUT -m set --match-set $ChainNameRule src -j DROP" >> "$LOG_HISTORY"
+      if ! "$IP_TOOL" -C INPUT -m set --match-set "$ChainNameRule" src -j DROP 2>/dev/null; then
+        "$IP_TOOL" -I INPUT -m set --match-set "$ChainNameRule" src -j DROP \
+        && echo "[$LOG_DT]  "$IP_TOOL" -I INPUT -m set --match-set $ChainNameRule src -j DROP" >> "$LOG_HISTORY"
       fi
     done
   fi
 }
 
-DenyIPList_check "$ChainName" "$IPList_sum" "$DenyIPLIst" "iptables"
-DenyIPList_check "$ChainNameV6" "$IPList_sumIPV6" "ip6tables"
+DenyIPList_check "iptables" "" "$ChainName" "$IPList_sum" "$DenyIPLIst" 
+DenyIPList_check "ip6tables" "family inet6" "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6" 
 
 # 检查日志是否存在以及限制大小
 function check_log {
