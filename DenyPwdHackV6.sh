@@ -7,8 +7,7 @@ Failed_times=4
 findtime=3600
 
 ## 黑名单过期时间,单位：小时
-## ！ 至少要大于查找时间！！
-bantime=24
+bantime=24  ## ！ 至少要大于查找时间！！
 
 ## 日志路径
 LOG_DEST=/tmp/BanIP.log   # 操作日志 使用grep "\] BAN_IP.*DenyPwdHack" /tmp/BanIP.log 筛选封禁ip相关行
