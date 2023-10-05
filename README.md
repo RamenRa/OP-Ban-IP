@@ -1,13 +1,16 @@
 # OP-Ban-IP
 [项目源地址](https://github.com/vimers01/deny-ssh-password-attack)
 &ensp; 基于iptables/ip6tables和ipset**修改编写**了一个读取日志、封禁ip的小脚本, 脚本通过crontab定时执行。参数在脚本中修改。
+&ensp; 官方的openwrt可以直接用‘fail2ban’，我使用的op版本添加‘luci’规则后依然不生效。
 ## 本脚本基于iptables/ip6tables 和 ipset实现
 ### 操作步骤如下:
 ***
 
-1. 下载文件DenyPwdHackV6.sh , 以root登录，放在 /root/ 目录下。然后执行  在Openwrt增加以下 crontab 内容:
+1. 以root登录 下载文件DenyPwdHackV6.sh 并修改权限:
 ```
-chmod u+x /root/DenyPwdHackV6.sh
+wget https://github.com/RamenRa/OP-Ban-IP/blob/main/DenyPwdHackV6.sh  # 下载
+
+chmod u+x /root/DenyPwdHackV6.sh   # 更改权限
 ```
 
 2. 执行命令: 
