@@ -1,15 +1,15 @@
 #!/bin/bash
 ## 本脚本基于iptables/ip6tables 和 ipset实现
 
-Failed_times=4  ## 失败次数
-findtime=3600  # 查找日志时间范围，单位：秒
-bantime=24  # 黑名单过期时间,单位：小时 至少要大于 findtime/3600 
+Failed_times=4  ## 失败次数(整数)
+findtime=3600  # 查找日志时间范围，单位：秒(整数)
+bantime=24  # 黑名单过期时间,单位：小时(整数) 至少要大于 findtime/3600 
 
 ## 日志路径
 LOG_DEST=/tmp/BanIP.log  # 不要随意删除 解除黑名单依赖BanIP.log
 LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
 
-MAX_SIZE=50000  # 设置最大文件大小 单位：B
+MAX_SIZE=50000  # 设置最大文件大小 单位：B (整数)
 
 ## 白名单IP可以用"|"号隔开,支持grep的正则表达式
 exclude_ip="192.168.4.|127.0.0.1"
@@ -188,7 +188,6 @@ function check_log {
   if [ "$log_size" -gt "$MAX_SIZE" ]; then
     echo "" > "$log_name"
   fi
-
 }
 check_log "$LOG_DEST"
 check_log "$LOG_HISTORY"
