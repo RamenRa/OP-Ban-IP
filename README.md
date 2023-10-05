@@ -25,7 +25,7 @@ crontab -e
 ```
 ipset list | awk '/Name: DenyPwdHack/,0'
 ```
-#### 按照规则序号 手动删除规则：
+#### 手动删除规则：
 ```
 ipset del DenyPwdHack 192.168.XX.XX    # ipv4规则  将IP替换为需要移除黑名单的ip
 ipset del DenyPwdHack6 fe80::          # ipv6规则 将IP替换为需要移除黑名单的ip
@@ -48,7 +48,7 @@ cat /tmp/BanHistory.log  # 历史禁止IP
 
 2. 查找日志时间范围，单位：秒
    
-   findtime=500
+   findtime=3600
 
 3. 黑名单过期时间,单位小时
  
