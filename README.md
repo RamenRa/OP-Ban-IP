@@ -5,7 +5,7 @@
 
 &ensp; 官方的openwrt可以直接用‘fail2ban’，我使用的op版本添加‘luci’规则后依然不生效。
 ## 本脚本基于iptables/ip6tables 和 ipset实现
-### 操作步骤如下:
+### 使用方法:
 ***
 
 1. 以root登录 下载文件DenyPwdHackV6.sh 并修改权限:
@@ -26,6 +26,8 @@ crontab -e
 */1 * * * * /root/DenyPwdHackV6.sh   # 每1分钟执行一次脚本例子
 ```
 
+### 后续操作方法：
+***
 #### 查看封锁IP集合：
 ```
 ipset list | awk '/Name: DenyPwdHack/,0'  # 如果没有显示ipv6的集合 'DenyPwdHack'替换成'DenyPwdHack6'
@@ -36,7 +38,7 @@ ipset del DenyPwdHack 192.168.XX.XX  # ipv4规则  将IP替换为需要从黑名
 
 ipset del DenyPwdHack6 fe80::        # ipv6规则 将IP替换为需要从黑名单移除的ip
 ```
-移除后，下一次运行脚本如果违规IP的违规记录还**在查找日志时间范围 findtime**之内。会被再次封禁！！
+移除后，下一次运行脚本如果违规IP的违规记录还在**查找日志时间范围 参数: findtime**之内。会被再次封禁！！
 
 #### 查看日志
 ```
@@ -45,8 +47,7 @@ cat /tmp/BanHistory.log  # 历史禁止IP
 
 ```
 
-
-### 脚本中的参数：
+### 可修改的参数：
 ***
 ```
 1. 登录失败多少次后封锁IP
