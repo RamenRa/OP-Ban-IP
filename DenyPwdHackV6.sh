@@ -1,5 +1,5 @@
 #!/bin/bash
-## 本脚本基于iptables/ip6tables 和 ipset实现 该脚本的创建的防火墙规则 在重启后消失
+## 本脚本基于iptables/ip6tables 和 ipset实现
 ## 失败次数
 Failed_times=4
 
@@ -136,7 +136,7 @@ LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 ipset_exists=$(ipset list | grep -q "$ChainName" && echo "yes" || echo "no")
 if [ "$ipset_exists" = "no" ]; then
   # 如果集合不存在，创建它.
-  echo "[$LOG_DT]  ipset create $ChainName hash:ip" >> $LOG_DEST
+  echo "[$LOG_DT]  ipset create $ChainName hash:ip" >> $LOG_HISTORY
   ipset create "$ChainName" hash:ip
 fi
 
@@ -144,7 +144,7 @@ fi
 ipset_exists=$(ipset list | grep -q "$ChainNameV6" && echo "yes" || echo "no")
 if [ "$ipset_exists" = "no" ]; then
   # 如果集合不存在，创建它.
-  echo "[$LOG_DT]  ipset create $ChainNameV6 hash:ip" >> $LOG_DEST
+  echo "[$LOG_DT]  ipset create $ChainNameV6 hash:ip" >> $LOG_HISTORY
   ipset create "$ChainNameV6" hash:ip family inet6
 fi
 
@@ -172,19 +172,13 @@ if [[ $IPList_sum -ne 0 ]];then
   current_timestamp=$(date +%s)   # 获取当前时间戳
   for i in ${DenyIPLIst}
     do
-    result=$(ipset test "$ChainName" "$i" 2>&1)
-    if echo "$result" | grep -q "is in set $ChainName"; then
-      :
-    else
-      ipset add "$ChainName" "$i" \
+    if ! ipset test "$ChainName" "$i" 2>&1 | grep -q "is in set $ChainName"; then
+      ipset add "$ChainName" "$i" 2>/dev/null \
       && echo "[$LOG_DT] BAN_IP $i rule $ChainName unix $current_timestamp" >> $LOG_DEST  
-  fi
-    result=$(iptables -C INPUT -m set --match-set "$ChainName" src -j DROP 2>&1)
-    if echo "$result" | grep -q "exist in that chain"; then
+    fi
+    if ! iptables -C INPUT -m set --match-set "$ChainName" src -j DROP 2>/dev/null; then
       iptables -I INPUT -m set --match-set "$ChainName" src -j DROP \
-       && echo "[$LOG_DT]  iptables -I INPUT -m set --match-set $ChainName src -j DROP" >> $LOG_DEST
-    else
-      :
+      && echo "[$LOG_DT]  iptables -I INPUT -m set --match-set $ChainName src -j DROP" >> $LOG_HISTORY
     fi
     done
 fi
@@ -195,19 +189,13 @@ if [[ $IPList_sumIPV6 -ne 0 ]];then
   current_timestamp=$(date +%s)   # 获取当前时间戳
   for i in ${DenyIPLIstIPV6}
     do
-    result=$(ipset test "$ChainNameV6" "$i" 2>&1)
-    if echo "$result" | grep -q "is in set $ChainNameV6"; then
-      :
-    else
+    if ! ipset test "$ChainNameV6" "$i" 2>&1 | grep -q "is in set $ChainNameV6"; then
       ipset add "$ChainNameV6" "$i" \
       && echo "[$LOG_DT] BAN_IP $i rule $ChainNameV6 unix $current_timestamp" >> $LOG_DEST  
-  fi
-    result=$(ip6tables -C INPUT -m set --match-set "$ChainNameV6" src -j DROP 2>&1)
-    if echo "$result" | grep -q "exist in that chain"; then
+    fi
+    if ! iptables -C INPUT -m set --match-set "$ChainNameV6" src -j DROP 2>/dev/null; then
       ip6tables -I INPUT -m set --match-set "$ChainNameV6" src -j DROP \
-       && echo "[$LOG_DT]  ip6tables -I INPUT -m set --match-set $ChainNameV6 src -j DROP" >> $LOG_DEST
-    else
-      :
+      && echo "[$LOG_DT]  ip6tables -I INPUT -m set --match-set $ChainNameV6 src -j DROP" >> $LOG_HISTORY
     fi
     done
 fi
@@ -249,9 +237,8 @@ grep "\] BAN_IP.*DenyPwdHack" $LOG_DEST | while read -r line; do
   # 计算时间差
   time_difference=$((current_timestamp - timestamp_unix))
 
-  # 检查时间差是否大于600秒
+  # 检查时间差是否超出
   if [ "$time_difference" -gt $(($bantime * 3600)) ]; then
-    echo " ipset del $ChainName $ip  delte ip succecu"
     ipset del $ChainName $ip 2>/dev/null || ipset del $ChainNameV6 $ip 2>/dev/null
     formatted_timestamp=`date "+%Y-%m-%d %H:%M:%S"`  # 获得一个格式化的时间戳
     modified_line=$(echo "$line" | sed 's/BAN_IP/Released from Prison/'|  awk -v ts="[$formatted_timestamp]" '{sub(/rule.*/, "in " ts)}1')
