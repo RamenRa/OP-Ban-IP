@@ -79,6 +79,8 @@ function process_logread_output {
   local logread_output="$1"
   local threshold="$2"  ## 新增的参数用于表示时间差的阈值
   local output=""
+  # 获取当前时间戳
+  current_timestamp=$(date +%s)
   while IFS= read -r line; do
     # 提取日志中的时间部分
     log_time=$(echo "$line" | awk '{print $1, $2, $3, $4, $5}')
@@ -86,17 +88,15 @@ function process_logread_output {
     # timestamp=$(date -d "$log_time" +%s 2>/dev/null)
     timestamp=$(get_unix_time $log_time)
     if [ -n "$timestamp" ]; then
-      # 获取当前时间戳
-      current_timestamp=$(date +%s)
       # 计算时间戳差值
       time_diff=$((current_timestamp - timestamp))
       # 如果差值小于threshold秒，则输出时间戳和原始日志行
       if [ "$time_diff" -lt "$threshold" ]; then
         # 将结果写入输出变量
         output+="$line\n"
+      else
+        break   # 否则退出查找
       fi
-    else
-       : # 如果转换失败
     fi
   done <<< "$logread_output"  # 通过 <<< 运算符传递logread的输出
 
@@ -104,9 +104,9 @@ function process_logread_output {
  echo -e "$output"
 }
 
-# 使用logread命令获取日志并调用函数
-# logread_output=$(cat /tmp/log/system.log) 
-logread_output=$(logread) 
+# 使用logread命令获取日志并调用函数 从最新时间开始查找
+logread_output=$(logread | awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--] }') 
+# logread_output=$(logread) 
 log_output=$(process_logread_output "$logread_output" "$findtime")
 
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
@@ -188,6 +188,7 @@ function check_log {
   if [ "$log_size" -gt "$MAX_SIZE" ]; then
     echo "" > "$log_name"
   fi
+
 }
 check_log "$LOG_DEST"
 check_log "$LOG_HISTORY"
