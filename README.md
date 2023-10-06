@@ -77,13 +77,13 @@ MAX_SIZE=50000
 ```
 
 
-### 完全删除脚本
+### 不重启 撤销脚本所有操作
 ```
 ipset destroy DenyPwdHack  # 删除整个IP集合
 ipset destroy DenyPwdHack6  # 删除整个IPV6集合
 
-iptables -D INPUT -m set --match-set DenyPwdHack src -j DROP  # 删除IPV4防火墙规则
-ip6tables -D INPUT -m set --match-set DenyPwdHack6 src -j DROP # 删除IPV6防火墙规则
+iptables -D INPUT -m set --match-set DenyPwdHack src -j DROP   # 删除IPV4防火墙规则 一般只需运行一次 可以在终端重复执行，直到提示规则不存在 
+ip6tables -D INPUT -m set --match-set DenyPwdHack6 src -j DROP # 删除IPV6防火墙规则 一般只需运行一次 可以在终端重复执行，直到提示规则不存在
 
 rm /tmp/BanIP.log  # 删除日志
 rm /tmp/BanHistory.log
