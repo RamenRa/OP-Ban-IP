@@ -129,7 +129,7 @@ DenyIPLIst=`echo "$log_output" \
 # 从logread获取违规信息 IPV6
 DenyIPLIstIPV6=`echo "$log_output" \
   | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
-  if($i~/^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/) \
+  if($i~/^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})$/) \
   print $i}' \
   | sort | uniq -c \
   | awk '{if($1>'"$Failed_times"') print $2}'`
