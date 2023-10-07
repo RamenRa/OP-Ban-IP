@@ -1,15 +1,15 @@
 #!/bin/bash
 ## 本脚本基于iptables/ip6tables 和 ipset实现
 
-Failed_times=4  ## 失败次数(整数)
-findtime=3600  # 查找日志时间范围，单位：秒(整数)
-bantime=24  # 黑名单过期时间,单位：小时(整数) 至少要大于 findtime/3600 
+Failed_times=4  ## 失败次数
+findtime=3600  # 查找日志时间范围，单位：秒
+bantime=24  # 黑名单过期时间,单位：小时 至少要大于 findtime/3600 
 
 ## 日志路径
 LOG_DEST=/tmp/BanIP.log  # 不要随意删除 解除黑名单依赖BanIP.log
 LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
 
-MAX_SIZE=50000  # 设置最大文件大小 单位：B (整数)
+MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
 ## 白名单IP可以用"|"号隔开,支持grep的正则表达式
 exclude_ip="192.168.4.|127.0.0.1"
@@ -99,29 +99,32 @@ function process_logread_output {
       fi
     fi
   done <<< "$logread_output"  # 通过 <<< 运算符传递logread的输出
-
   # 返回所有echo输出的内容
  echo -e "$output"
 }
 
-# 使用logread命令获取日志并调用函数 从最新时间开始查找
-logread_output=$(logread | awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--] }') 
+# 使用logread命令获取日志并调用函数
+logread_output=$(logread | awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--] }')
 # logread_output=$(logread) 
 log_output=$(process_logread_output "$logread_output" "$findtime")
 
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
 ## 注: SSH 攻击可以大量出现四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
 ##     Luci 攻击可以出现"luci: failed login on / for root from xx.xx.xx.xx"
-LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for|luci:\s+failed\s+login|auth\.info.*sshd.*Connection closed by.*port.*preauth"
+LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
+|luci:\s+failed\s+login \
+|auth\.info.*sshd.*Connection closed by.*port.*preauth \
+|Bad\s+password\s+attempt\s+for"
 
 ## 日志时间
 LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
-# 从logread获取违规信息
+# 从logread获取违规信息 第一次匹配带有端口号 、匹配第二次去掉端口号
 DenyIPLIst=`echo "$log_output" \
   | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
-  if($i~/^(([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/) \
+  if($i~/^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}[:0-9]{0,6}$/) \
   print $i}' \
+  | grep -Eo "((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}" \
   | grep -vE "${exclude_ip}" \
   | sort | uniq -c \
   | awk '{if($1>'"$Failed_times"') print $2}'`
@@ -129,8 +132,9 @@ DenyIPLIst=`echo "$log_output" \
 # 从logread获取违规信息 IPV6
 DenyIPLIstIPV6=`echo "$log_output" \
   | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
-  if($i~/^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})$/) \
+  if($i~/^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})[:0-9]{0,6}$/) \
   print $i}' \
+  | grep -Eo "([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})" \
   | sort | uniq -c \
   | awk '{if($1>'"$Failed_times"') print $2}'`
 
