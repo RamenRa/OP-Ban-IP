@@ -142,13 +142,11 @@ function DenyIP_FromLog {
   # 返回处理结果
   echo "$get_DenyIP"
 }
-
 # 调用函数并传入参数
 DenyIPLIst=$(DenyIP_FromLog "$exclude_ipv4" "$regex_IPV4")
 # echo "$DenyIPLIst"
 DenyIPLIstIPV6=$(DenyIP_FromLog "" "$regex_IPV6")
 # echo "$DenyIPLIstIPV6"
-  
 
 # 统计ip 每行一个ip 统计行数即可
 IPList_sum=$(awk 'END {print NR}' <<< "$DenyIPLIst")
@@ -187,7 +185,6 @@ function DenyIPList_check {
     done
   fi
 }
-
 DenyIPList_check "iptables" "" "$ChainName" "$IPList_sum" "$DenyIPLIst" 
 DenyIPList_check "ip6tables" "family inet6" "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6" 
 
