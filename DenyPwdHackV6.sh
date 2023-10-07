@@ -11,14 +11,19 @@ LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
 
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
-## 白名单IP可以用"|"号隔开,支持grep的正则表达式
+## 白名单IPV4 用"|"号隔开,支持grep的正则表达式
 exclude_ip="192.168.4.|127.0.0.1"
 
-## 个别第三方编译的版本可能没有写有版本号，暂时停用
-## OpenWRT 版本判断
-# Vfile=/etc/banner
-# OWTV=`awk 'BEGIN{IGNORECASE=1}/openwrt/ {split($2,v,"."); print v[1]}' $Vfile`
-# [[ $OWTV -lt 18 ]] && echo "OpenWRT version must be >= 18" && exit 1
+## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
+## 注: SSH 攻击四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
+##     Luci 攻击"luci: failed login on / for root from xx.xx.xx.xx"
+LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
+|luci:\s+failed\s+login \
+|auth\.info.*sshd.*Connection closed by.*port.*preauth \
+|Bad\s+password\s+attempt\s+for"
+
+## 日志时间
+LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
 ## 用于返回"Tue Oct 3 23:02:25 2023"时间格式的unix时间戳
 function get_unix_time {
@@ -32,46 +37,29 @@ function get_unix_time {
   min="${array[1]}"
   sec="${array[2]}"
 
-  if [[ $mon == "Jan" ]]
-  then
-    month="1"
-  elif [[ $mon == "Feb" ]]
-  then
-    month="2"
-  elif [[ $mon == "Mar" ]]
-  then
-    month="3"
-  elif [[ $mon == "Ari" ]]
-  then
-    month="4"
-  elif [[ $mon == "May" ]]
-  then
-    month="5"
-  elif [[ $mon == "Jun" ]]
-  then
-    month="6"
-  elif [[ $mon == "Jul" ]]
-  then
-    month="7"
-  elif [[ $mon == "Aut" ]]
-  then
-    month="8"
-  elif [[ $mon == "Sep" ]]
-  then
-    month="9"
-  elif [[ $mon == "Oct" ]]
-  then
-    month="10"
-  elif [[ $mon == "Nov" ]]
-  then
-     month="11"
-  elif [[ $mon == "Dec" ]]
-  then
-    month="12"
+  case $mon in
+    "Jan") month="1" ;;
+    "Feb") month="2" ;;
+    "Mar") month="3" ;;
+    "Apr") month="4" ;;
+    "May") month="5" ;;
+    "Jun") month="6" ;;
+    "Jul") month="7" ;;
+    "Aug") month="8" ;;
+    "Sep") month="9" ;;
+    "Oct") month="10" ;;
+    "Nov") month="11" ;;
+    "Dec") month="12" ;;
+    *) month="0" ;;  # Handle unknown month
+  esac
+
+  if [ "$month" != "0" ]; then
+    datetime="$year-$month-$day $hour:$min:$sec"
+    unix_timestamp=$(date -d "$datetime" "+%s")
+    echo -e "$unix_timestamp"
+  else
+    echo "Invalid month: $mon"
   fi
-  datetime="$year-$month-$day $hour:$min:$sec"
-  unix_timestamp=$(date -d "$datetime" "+%s")
-  echo -e "$unix_timestamp"
 }
 
 ## 返回 时间范围内的日志
@@ -108,16 +96,6 @@ logread_output=$(logread | awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--]
 # logread_output=$(logread) 
 log_output=$(process_logread_output "$logread_output" "$findtime")
 
-## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
-## 注: SSH 攻击可以大量出现四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
-##     Luci 攻击可以出现"luci: failed login on / for root from xx.xx.xx.xx"
-LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
-|luci:\s+failed\s+login \
-|auth\.info.*sshd.*Connection closed by.*port.*preauth \
-|Bad\s+password\s+attempt\s+for"
-
-## 日志时间
-LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
 # 从logread获取违规信息 第一次匹配带有端口号 、匹配第二次去掉端口号
 DenyIPLIst=`echo "$log_output" \
