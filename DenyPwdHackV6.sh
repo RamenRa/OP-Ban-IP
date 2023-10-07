@@ -12,7 +12,7 @@ LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
 ## 白名单IPV4 用"|"号隔开,支持grep的正则表达式
-exclude_ip="192.168.4.|127.0.0.1"
+exclude_ipv4="192.168.4.|127.0.0.1"
 
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
 ## 注: SSH 攻击四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
@@ -22,20 +22,34 @@ LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
 |auth\.info.*sshd.*Connection closed by.*port.*preauth \
 |Bad\s+password\s+attempt\s+for"
 
+regex_IPV4="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}[:0-9]{0,6}$"
+regex_IPV6="^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})[:0-9]{0,6}$"
+
+function replace_backslashes {
+  local input="$1"
+  local replaced="${input//\\/\\\\\\}"  # 使用参数替换来进行替换
+  echo "$replaced"
+}
+
+# 将'\'变成'\\\'
+LOG_KEY_WORD=$(replace_backslashes "$LOG_KEY_WORD")
+regex_IPV4=$(replace_backslashes "$regex_IPV4")
+
+
 ## 日志时间
 LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
 ## 用于返回"Tue Oct 3 23:02:25 2023"时间格式的unix时间戳
 function get_unix_time {
-  mon="$2"
-  day="$3"
-  time_str="$4"
-  year="$5"
+  local mon="$2"
+  local day="$3"
+  local time_str="$4"
+  local year="$5"
 
-  array=(${time_str//:/ })
-  hour="${array[0]}"
-  min="${array[1]}"
-  sec="${array[2]}"
+  local array=(${time_str//:/ })
+  local hour="${array[0]}"
+  local min="${array[1]}"
+  local sec="${array[2]}"
 
   case $mon in
     "Jan") month="1" ;;
@@ -97,28 +111,48 @@ logread_output=$(logread | awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--]
 log_output=$(process_logread_output "$logread_output" "$findtime")
 
 
-# 从logread获取违规信息 第一次匹配带有端口号 、匹配第二次去掉端口号
-DenyIPLIst=`echo "$log_output" \
-  | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
-  if($i~/^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}[:0-9]{0,6}$/) \
-  print $i}' \
-  | grep -Eo "((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}" \
-  | grep -vE "${exclude_ip}" \
-  | sort | uniq -c \
-  | awk '{if($1>'"$Failed_times"') print $2}'`
+# 从logread获取违规信息
+function DenyIP_FromLog {
+  local exclude_lo="$1"
+  local regex="$2"
+
+  # 使用awk来处理日志输出
+  get_DenyIP=$(echo "$log_output" | awk -v keyword="$LOG_KEY_WORD" -v exclude="$exclude_lo" -v failed="$Failed_times" -v regex="$regex" '
+    BEGIN {
+      OFS="\n"
+    }
+    $0 ~ keyword {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ regex) { # 使用变量 regex 来匹配正则表达式
+          ip = $i
+          gsub(/:[0-9]+$/, "", ip) # 删除端口号
+          if (ip != exclude) {
+            ip_count[ip]++
+          }
+        }
+      }
+    }
+    END {
+      for (ip in ip_count) {
+        if (ip_count[ip] > failed) {
+          print ip
+        }
+      }
+    }' | sort -u)
+  # 返回处理结果
+  echo "$get_DenyIP"
+}
+
+# 调用函数并传入参数
+DenyIPLIst=$(DenyIP_FromLog "$exclude_ipv4" "$regex_IPV4")
+# echo "$DenyIPLIst"
+DenyIPLIstIPV6=$(DenyIP_FromLog "" "$regex_IPV6")
+# echo "$DenyIPLIstIPV6"
   
-# 从logread获取违规信息 IPV6
-DenyIPLIstIPV6=`echo "$log_output" \
-  | awk '/'"$LOG_KEY_WORD"'/ {for(i=1;i<=NF;i++) \
-  if($i~/^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})[:0-9]{0,6}$/) \
-  print $i}' \
-  | grep -Eo "([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})" \
-  | sort | uniq -c \
-  | awk '{if($1>'"$Failed_times"') print $2}'`
 
 # 统计ip 每行一个ip 统计行数即可
-IPList_sum=`echo "${DenyIPLIst}" | wc -l`
-IPList_sumIPV6=`echo "${DenyIPLIstIPV6}" | wc -l`
+IPList_sum=$(awk 'END {print NR}' <<< "$DenyIPLIst")
+IPList_sumIPV6=$(awk 'END {print NR}' <<< "$DenyIPLIstIPV6")
 
 ## IP集合名称
 ChainName=DenyPwdHack
@@ -170,8 +204,8 @@ function check_log {
   if [ "$log_size" -gt "$MAX_SIZE" ]; then
     echo "" > "$log_name"
   fi
-
 }
+# 检查日志
 check_log "$LOG_DEST"
 check_log "$LOG_HISTORY"
 
@@ -180,10 +214,9 @@ current_timestamp=$(date +%s) # 获取当前unix时间戳
 # 执行grep命令并逐行处理输出
 grep "\] BAN_IP.*DenyPwdHack" $LOG_DEST | while read -r line; do
   # 提取行中的时间戳和IP地址
-  # timestamp=$(echo "$line" | awk '{print $1}' | tr -d '[]')
-  ip=$(echo "$line" | awk '{print $4}')
+  ip=$(awk '{print $4}' <<< "$line")
   # 将时间戳转换为Unix时间戳
-  timestamp_unix=$(echo "$line" | awk '{print $8}')
+  timestamp_unix=$(awk '{print $8}' <<< "$line")
 
   # 计算时间差
   time_difference=$((current_timestamp - timestamp_unix))
@@ -192,7 +225,7 @@ grep "\] BAN_IP.*DenyPwdHack" $LOG_DEST | while read -r line; do
   if [ "$time_difference" -gt $(($bantime * 3600)) ]; then
     ipset del $ChainName $ip 2>/dev/null || ipset del $ChainNameV6 $ip 2>/dev/null
     formatted_timestamp=`date "+%Y-%m-%d %H:%M:%S"`  # 获得一个格式化的时间戳
-    modified_line=$(echo "$line" | sed 's/BAN_IP/Released/'|  awk -v ts="[$formatted_timestamp]" '{sub(/rule.*/, "in " ts)}1')
+    modified_line=$(sed 's/BAN_IP/Released/' <<< "$line" | awk -v ts="[$formatted_timestamp]" '{sub(/rule.*/, "in " ts)}1')
     echo "$modified_line" >> $LOG_HISTORY
   else
     echo "$line"
