@@ -23,8 +23,8 @@ LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
 |auth\.info.*sshd.*Connection closed by.*port.*preauth \
 |Bad\s+password\s+attempt\s+for"
 
-regex_IPV4="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}"
-regex_IPV6="^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})"
+regex_IPV4="((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}"
+regex_IPV6="([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})"
 
 function replace_backslashes {
   local input="$1"
