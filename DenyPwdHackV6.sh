@@ -11,8 +11,9 @@ LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
 
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
-## 白名单IPV4 用"|"号隔开,支持grep的正则表达式
-exclude_ipv4="192.168.4.|127.0.0.1"
+## 白名单 支持正则表达式
+exclude_ipv4="10.8.0.([0-9]+)|127.0.0.1"
+exclude_ipv6=""
 
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
 ## 注: SSH 攻击四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
@@ -22,8 +23,8 @@ LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
 |auth\.info.*sshd.*Connection closed by.*port.*preauth \
 |Bad\s+password\s+attempt\s+for"
 
-regex_IPV4="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}[:0-9]{0,6}$"
-regex_IPV6="^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})[:0-9]{0,6}$"
+regex_IPV4="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}"
+regex_IPV6="^([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})"
 
 function replace_backslashes {
   local input="$1"
@@ -34,7 +35,6 @@ function replace_backslashes {
 # 将'\'变成'\\\'
 LOG_KEY_WORD=$(replace_backslashes "$LOG_KEY_WORD")
 regex_IPV4=$(replace_backslashes "$regex_IPV4")
-
 
 ## 日志时间
 LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
@@ -85,7 +85,7 @@ function process_logread_output {
   current_timestamp=$(date +%s)
   while IFS= read -r line; do
     # 提取日志中的时间部分
-    log_time=$(echo "$line" | awk '{print $1, $2, $3, $4, $5}')
+    log_time=$(awk '{print $1, $2, $3, $4, $5}' <<< "$line")
     # 将时间转换为时间戳
     # timestamp=$(date -d "$log_time" +%s 2>/dev/null)
     timestamp=$(get_unix_time $log_time)
@@ -114,39 +114,36 @@ log_output=$(process_logread_output "$logread_output" "$findtime")
 # 从logread获取违规信息
 function DenyIP_FromLog {
   local exclude_lo="$1"
-  local regex="$2"
+  local regexIP="$2"
 
   # 使用awk来处理日志输出
-  get_DenyIP=$(echo "$log_output" | awk -v keyword="$LOG_KEY_WORD" -v exclude="$exclude_lo" -v failed="$Failed_times" -v regex="$regex" '
+  get_DenyIP=$(awk -v keyword="$LOG_KEY_WORD" -v exclude="$exclude_lo" -v failed="$Failed_times" -v regexIP="$regexIP" '
     BEGIN {
       OFS="\n"
     }
     $0 ~ keyword {
       for (i = 1; i <= NF; i++) {
-        if ($i ~ regex) { # 使用变量 regex 来匹配正则表达式
-          ip = $i
-          gsub(/:[0-9]+$/, "", ip) # 删除端口号
-          if (ip != exclude) {
-            ip_count[ip]++
-          }
+        sub(exclude, "", $i)
+        if (match($i, regexIP)) {
+          ip = substr($i, RSTART, RLENGTH)
+          ip_count[ip]++
         }
       }
     }
     END {
       for (ip in ip_count) {
-        if (ip_count[ip] > failed) {
+        if (ip_count[ip] >= failed) {
           print ip
         }
       }
-    }' | sort -u)
+    }' <<< "$log_output" | sort -u)
   # 返回处理结果
   echo "$get_DenyIP"
 }
+
 # 调用函数并传入参数
 DenyIPLIst=$(DenyIP_FromLog "$exclude_ipv4" "$regex_IPV4")
-# echo "$DenyIPLIst"
-DenyIPLIstIPV6=$(DenyIP_FromLog "" "$regex_IPV6")
-# echo "$DenyIPLIstIPV6"
+DenyIPLIstIPV6=$(DenyIP_FromLog "$exclude_ipv6" "$regex_IPV6")
 
 # 统计ip 每行一个ip 统计行数即可
 IPList_sum=$(awk 'END {print NR}' <<< "$DenyIPLIst")
@@ -163,6 +160,7 @@ function DenyIPList_check {
   local DenyIPLIst_local="$5"
   local IP_TOOL="$1"
   local IP_CLASS="$2"
+
   
   # 检查集合是否已经存在
   ipset_exists=$(ipset list | grep -q "$ChainNameRule" && echo "yes" || echo "no")
@@ -185,6 +183,7 @@ function DenyIPList_check {
     done
   fi
 }
+
 DenyIPList_check "iptables" "" "$ChainName" "$IPList_sum" "$DenyIPLIst" 
 DenyIPList_check "ip6tables" "family inet6" "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6" 
 
