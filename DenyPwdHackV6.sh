@@ -11,13 +11,14 @@ LOG_HISTORY=/tmp/BanHistory.log  # 操作日志和到期释放的IP
 
 MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
-## 白名单 支持正则表达式
+## IPV4白名单10.8.0.xxx 支持正则表达式 
 exclude_ipv4="10.8.0.([0-9]+)|127.0.0.1"
-exclude_ipv6=""
+## 至少要保留一个空字符 位数要严格限制 
+## 只要发生了匹配行为就认为是白名单IP 表达式测试：https://c.runoob.com/front-end/854/
+exclude_ipv6=" "
 
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
-## 注: SSH 攻击四种关键字：Invalid user/Failed password for/Received disconnect from/Disconnected from authenticating
-##     Luci 攻击"luci: failed login on / for root from xx.xx.xx.xx"
+## 根据在终端执行logread返回内容添加
 LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
 |luci:\s+failed\s+login \
 |auth\.info.*sshd.*Connection closed by.*port.*preauth \
@@ -110,7 +111,6 @@ logread_output=$(logread | awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--]
 # logread_output=$(logread) 
 log_output=$(process_logread_output "$logread_output" "$findtime")
 
-
 # 从logread获取违规信息
 function DenyIP_FromLog {
   local exclude_lo="$1"
@@ -123,10 +123,11 @@ function DenyIP_FromLog {
     }
     $0 ~ keyword {
       for (i = 1; i <= NF; i++) {
-        sub(exclude, "", $i)
         if (match($i, regexIP)) {
           ip = substr($i, RSTART, RLENGTH)
-          ip_count[ip]++
+          if (!sub(exclude, "", $i)) {
+            ip_count[ip]++
+          }
         }
       }
     }
