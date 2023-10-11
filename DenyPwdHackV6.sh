@@ -13,8 +13,8 @@ MAX_SIZE=50000  # 设置最大文件大小 单位：B
 
 ## IPV4白名单10.8.0.xxx 支持正则表达式 
 exclude_ipv4="10.8.0.([0-9]+)|127.0.0.1"
-## 至少要保留一个空字符 位数要严格限制 
-## 只要发生了匹配行为就认为是白名单IP 表达式测试：https://c.runoob.com/front-end/854/
+## 至少要保留一个空字符 请严格限制表达式 
+## 只要发生了匹配行为 就认为是白名单IP 表达式测试：https://c.runoob.com/front-end/854/
 exclude_ipv6=" "
 
 ## 日志关键字,每个关键字可以用"|"号隔开,支持grep的正则表达式
@@ -40,37 +40,21 @@ regex_IPV4=$(replace_backslashes "$regex_IPV4")
 ## 日志时间
 LOG_DT=`date "+%Y-%m-%d %H:%M:%S"`
 
-## 用于返回"Tue Oct 3 23:02:25 2023"时间格式的unix时间戳
+## 关联数组来映射月份的字符串到数字
+declare -A month_map
+month_map=( ["Jan"]="1" ["Feb"]="2" ["Mar"]="3" ["Apr"]="4" ["May"]="5" ["Jun"]="6" ["Jul"]="7" ["Aug"]="8" ["Sep"]="9" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
+
+## 用于返回"xxx Oct 3 23:02:25 2023"时间格式的unix时间戳
 function get_unix_time {
-  local mon="$2"
-  local day="$3"
-  local time_str="$4"
-  local year="$5"
+  local mon="$1"
+  local day="$2"
+  local time_str="$3"
+  local year="$4"
 
-  local array=(${time_str//:/ })
-  local hour="${array[0]}"
-  local min="${array[1]}"
-  local sec="${array[2]}"
-
-  case $mon in
-    "Jan") month="1" ;;
-    "Feb") month="2" ;;
-    "Mar") month="3" ;;
-    "Apr") month="4" ;;
-    "May") month="5" ;;
-    "Jun") month="6" ;;
-    "Jul") month="7" ;;
-    "Aug") month="8" ;;
-    "Sep") month="9" ;;
-    "Oct") month="10" ;;
-    "Nov") month="11" ;;
-    "Dec") month="12" ;;
-    *) month="0" ;;  # Handle unknown month
-  esac
-
-  if [ "$month" != "0" ]; then
-    datetime="$year-$month-$day $hour:$min:$sec"
-    unix_timestamp=$(date -d "$datetime" "+%s")
+  if [ -n "${month_map[$mon]}" ]; then
+    local month="${month_map[$mon]}"
+    local datetime="$year-$month-$day $time_str"
+    local unix_timestamp=$(date -d "$datetime" "+%s")
     echo -e "$unix_timestamp"
   else
     echo "Invalid month: $mon"
@@ -82,13 +66,13 @@ function process_logread_output {
   local logread_output="$1"
   local threshold="$2"  ## 新增的参数用于表示时间差的阈值
   local output=""
+
   # 获取当前时间戳
   current_timestamp=$(date +%s)
   while IFS= read -r line; do
     # 提取日志中的时间部分
-    log_time=$(awk '{print $1, $2, $3, $4, $5}' <<< "$line")
+    log_time=$(awk '{print $2, $3, $4, $5}' <<< "$line")
     # 将时间转换为时间戳
-    # timestamp=$(date -d "$log_time" +%s 2>/dev/null)
     timestamp=$(get_unix_time $log_time)
     if [ -n "$timestamp" ]; then
       # 计算时间戳差值
@@ -113,11 +97,11 @@ log_output=$(process_logread_output "$logread_output" "$findtime")
 
 # 从logread获取违规信息
 function DenyIP_FromLog {
-  local exclude_lo="$1"
+  local exclude="$1"
   local regexIP="$2"
 
   # 使用awk来处理日志输出
-  get_DenyIP=$(awk -v keyword="$LOG_KEY_WORD" -v exclude="$exclude_lo" -v failed="$Failed_times" -v regexIP="$regexIP" '
+  get_DenyIP=$(awk -v keyword="$LOG_KEY_WORD" -v exclude="$exclude" -v failed="$Failed_times" -v regexIP="$regexIP" '
     BEGIN {
       OFS="\n"
     }
@@ -161,7 +145,6 @@ function DenyIPList_check {
   local DenyIPLIst_local="$5"
   local IP_TOOL="$1"
   local IP_CLASS="$2"
-
   
   # 检查集合是否已经存在
   ipset_exists=$(ipset list | grep -q "$ChainNameRule" && echo "yes" || echo "no")
