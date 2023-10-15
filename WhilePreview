@@ -1,8 +1,6 @@
 #!/bin/bash
 # #######################################
-# 在/etc/rc.local的exit0之前添加
-
-# vi /etc/rc.local
+# 编辑/etc/rc.local的exit0之前添加以下if判断  注意修改脚本名字
 
 # if [ -x /root/xxxxx.sh ] 
 # then
