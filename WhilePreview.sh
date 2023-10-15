@@ -10,7 +10,7 @@
 # #######################################
 
 ## 本脚本基于iptables/ip6tables 和 ipset实现
-sleep_times=20  ## 扫描间隔
+sleep_times=20  ## 扫描间隔 单位：秒
 
 Failed_times=5  ## 失败次数
 findtime=3600  # 查找日志时间范围，单位：秒
