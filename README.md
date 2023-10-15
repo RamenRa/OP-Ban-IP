@@ -25,13 +25,6 @@ crontab -e
 0 */3 * * * /root/DenyPwdHackV6.sh   # 每3 小时执行一次脚本例子
 */1 * * * * /root/DenyPwdHackV6.sh   # 每1分钟执行一次脚本例子
 ```
-或者在/etc/rc.local的exit0之前添加以下,一样能实现开机启动
-```
-if [ -x /root/DenyPwdHackV6.sh ] 
-then
-    /root/DenyPwdHackV6.sh &
-fi
-```
 
 
 ### 后续操作方法：
