@@ -38,6 +38,10 @@ LOG_KEY_WORD="auth\.info\s+sshd.*Failed password for \
 regex_IPV4="((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}"
 regex_IPV6="([a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(:[a-f0-9]{1,4}){0,7})"
 
+## 关联数组来映射月份的字符串到数字
+declare -A month_map
+month_map=( ["Jan"]="1" ["Feb"]="2" ["Mar"]="3" ["Apr"]="4" ["May"]="5" ["Jun"]="6" ["Jul"]="7" ["Aug"]="8" ["Sep"]="9" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
+
 function replace_backslashes {
   local input="$1"
   local replaced="${input//\\/\\\\\\}"  # 使用参数替换来进行替换
@@ -47,11 +51,6 @@ function replace_backslashes {
 # 将'\'变成'\\\'
 LOG_KEY_WORD=$(replace_backslashes "$LOG_KEY_WORD")
 regex_IPV4=$(replace_backslashes "$regex_IPV4")
-
-
-## 关联数组来映射月份的字符串到数字
-declare -A month_map
-month_map=( ["Jan"]="1" ["Feb"]="2" ["Mar"]="3" ["Apr"]="4" ["May"]="5" ["Jun"]="6" ["Jul"]="7" ["Aug"]="8" ["Sep"]="9" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
 
 ## 用于返回"xxx Oct 3 23:02:25 2023"时间格式的unix时间戳
 function get_unix_time {
@@ -180,6 +179,9 @@ check_log "$LOG_HISTORY"
 line_count=0  # 初始化行数计数
 # 初始日志内容
 previous_log=$(logread)
+## IP集合名称
+ChainName=DenyPwdHack
+ChainNameV6=DenyPwdHack6
 
 while true; do
   # 获取当前日志内容
@@ -207,10 +209,6 @@ while true; do
       IPList_sum=$(wc -l <<< "$DenyIPLIst")
       IPList_sumIPV6=$(wc -l <<< "$DenyIPLIstIPV6")
 
-    ## IP集合名称
-      ChainName=DenyPwdHack
-      ChainNameV6=DenyPwdHack6
-
       DenyIPList_check "iptables" "" "$ChainName" "$IPList_sum" "$DenyIPLIst" 
       DenyIPList_check "ip6tables" "family inet6" "$ChainNameV6" "$IPList_sumIPV6" "$DenyIPLIstIPV6" 
       line_count=0
@@ -218,7 +216,7 @@ while true; do
     fi
     previous_log="$current_log"
   fi
-    # 休眠时间
+  # 休眠时间
   sleep "$sleep_times"
 
   ## 黑名单过期删除
@@ -233,7 +231,7 @@ while true; do
   # 计算时间差
   time_difference=$((current_timestamp - timestamp_unix))
 
-    # 检查时间差是否超出
+  # 检查时间差是否超出
   if [ "$time_difference" -gt $(($bantime * 3600)) ]; then
     ipset del $ChainName $ip 2>/dev/null || ipset del $ChainNameV6 $ip 2>/dev/null
     formatted_timestamp=`date "+%Y-%m-%d %H:%M:%S"`  # 获得一个格式化的时间戳
