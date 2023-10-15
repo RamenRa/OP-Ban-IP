@@ -1,15 +1,14 @@
 #!/bin/bash
 # #######################################
-<<COMMENT
-在/etc/rc.local的exit0之前添加
+# 在/etc/rc.local的exit0之前添加
 
-vi /etc/rc.local
+# vi /etc/rc.local
 
-if [ -x /root/xxxxx.sh ] 
-then
-    /root/xxxxx.sh &
-fi
-COMMENT
+# if [ -x /root/xxxxx.sh ] 
+# then
+#    /root/xxxxx.sh &
+# fi
+
 # #######################################
 
 ## 本脚本基于iptables/ip6tables 和 ipset实现
