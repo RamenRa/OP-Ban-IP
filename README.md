@@ -15,7 +15,7 @@ wget https://github.com/RamenRa/OP-Ban-IP/blob/main/DenyPwdHackV6.sh  # 下载
 chmod u+x /root/DenyPwdHackV6.sh   # 更改权限
 ```
 
-2. 执行命令: 
+2. 添加自动启动任务: 
 ```
 crontab -e
 ```
@@ -25,6 +25,14 @@ crontab -e
 0 */3 * * * /root/DenyPwdHackV6.sh   # 每3 小时执行一次脚本例子
 */1 * * * * /root/DenyPwdHackV6.sh   # 每1分钟执行一次脚本例子
 ```
+或者在/etc/rc.local的exit0之前添加以下,一样能实现开机启动
+```
+if [ -x /root/DenyPwdHackV6.sh ] 
+then
+    /root/DenyPwdHackV6.sh &
+fi
+```
+
 
 ### 后续操作方法：
 ***
